@@ -49,15 +49,34 @@ private
     extern (C) CArgs rt_cArgs();
 }
 
-
-static this()
-{
-    // NOTE: Some module ctors will run before this handler is set, so it's
-    //       still possible the app could exit without a stack trace.  If
-    //       this becomes an issue, the handler could be set in C main
-    //       before the module ctors are run.
-    Runtime.traceHandler = &defaultTraceHandler;
+version(Windows){
+    static this()
+    {
+        //NOTE: This is horribly racy - https://issues.dlang.org/show_bug.cgi?id=14226
+        //Consider an application that does use a custom traceHandler
+        //  upon each thread initialization, the new thread sets the global hanlder to the customTraceHandler.
+        //Now consider just two threads: t1, t2
+        //  t1 is already initialized and running;
+        //  like any other thread, t1 has already set the traceHandler to be customTraceHandler
+        //  t1 is suspended
+        //  t2 is created - running the following code line
+        //  t2 is suspended - before reaching the per-thread code that sets the handler to customTraceHandler.
+        //  t1 is run; it throws an exception
+        //  the user's code handling this exception counts on the supplied TraceInfo to be of the customTraceHandler format
+        //  it's not the case; accessing CustomTraceInfo fields crashes the process
+        Runtime.traceHandler = &defaultTraceHandler;
+    }
+}else{
+    shared static this()
+    {
+        // NOTE: Some module ctors will run before this handler is set, so it's
+        //       still possible the app could exit without a stack trace.  If
+        //       this becomes an issue, the handler could be set in C main
+        //       before the module ctors are run.
+        Runtime.traceHandler = &defaultTraceHandler;
+    }
 }
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
