@@ -2624,11 +2624,20 @@ struct Gcx
     else
     {
         void log_init() nothrow { }
-        void log_malloc(void *p, size_t size) nothrow { }
+        void log_malloc(void *p, size_t size) nothrow {
+          if (!(g_log_malloc_call is null)) {
+                g_log_malloc_call(p, size);
+            }
+
+        }
         void log_free(void *p) nothrow { }
         void log_collect() nothrow { }
         void log_parent(void *p, void *parent) nothrow { }
     }
+}
+
+extern (C) {
+__gshared void function(void *p, size_t size) nothrow g_log_malloc_call = null;
 }
 
 /* ============================ Pool  =============================== */
