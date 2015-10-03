@@ -12,9 +12,13 @@ ROOT:=./obj/$(OS)/$(MODEL)
 TESTS:=stderr_msg unittest_assert
 ifeq ($(OS)-$(BUILD),linux-debug)
 	TESTS:=$(TESTS) line_trace
-	DIFF:=diff
-	SED:=sed
 endif
+ifeq ($(OS)-$(BUILD),freebsd-debug)
+	TESTS:=$(TESTS) line_trace
+endif
+
+DIFF:=diff
+SED:=sed
 
 ifneq (default,$(MODEL))
 	MODEL_FLAG:=-m$(MODEL)
