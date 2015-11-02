@@ -450,9 +450,9 @@ version( Posix )
     int pthread_key_delete(pthread_key_t);
     int pthread_mutex_destroy(pthread_mutex_t*);
     int pthread_mutex_init(pthread_mutex_t*, pthread_mutexattr_t*) @trusted;
-    int pthread_mutex_lock(pthread_mutex_t*);
+    int pthread_mutex_lock(pthread_mutex_t*) @nogc;
     int pthread_mutex_trylock(pthread_mutex_t*);
-    int pthread_mutex_unlock(pthread_mutex_t*);
+    int pthread_mutex_unlock(pthread_mutex_t*) @nogc;
     int pthread_mutexattr_destroy(pthread_mutexattr_t*);
     int pthread_mutexattr_init(pthread_mutexattr_t*) @trusted;
     int pthread_once(pthread_once_t*, void function());

@@ -16,7 +16,7 @@ import core.stdc.stdarg;
 extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
 
 // error and exit
-extern(C) void fatalerror(in char* format, ...)
+extern(C) void fatalerror(in char* format, ...) @nogc
 {
     va_list args;
     va_start(args, format);
@@ -351,7 +351,7 @@ ActiveCleanupBlock* searchPhaseCurrentCleanupBlock = null;
 /// rules).
 ClassInfo searchPhaseClassInfo = null;
 
-void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
+void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject) @nogc
 {
     auto acb = cast(ActiveCleanupBlock*)malloc(ActiveCleanupBlock.sizeof);
     if (!acb)
@@ -362,6 +362,10 @@ void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
         // recursive code with many finally blocks.
         fatalerror("Could not allocate memory for exception chaining.");
     }
+
+    debug(EH_personality_verbose)
+        printf("  - pushCleanupBlockRecord: pushed ACB %llx, innermostCleanupBlock: %llx\n", acb, innermostCleanupBlock);
+
     acb.cfaAddr = cfaAddr;
     acb.dObject = dObject;
     acb.outerBlock = innermostCleanupBlock;
@@ -375,7 +379,7 @@ void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
     GC.addRoot(cast(void*)dObject);
 }
 
-void popCleanupBlockRecord()
+void popCleanupBlockRecord() @nogc
 {
     if (!innermostCleanupBlock)
     {
@@ -387,6 +391,13 @@ void popCleanupBlockRecord()
     GC.removeRoot(cast(void*)acb.dObject);
     innermostCleanupBlock = acb.outerBlock;
     free(acb);
+
+    debug(EH_personality_verbose)
+    {
+        printf("  - popCleanupBlockRecord: freed ACB %llx, innermostCleanupBlock: %llx\n", acb, innermostCleanupBlock);
+        if (!innermostCleanupBlock)
+            printf("  - popCleanupBlockRecord: reached end of block chain\n", acb);
+    }
 }
 
 

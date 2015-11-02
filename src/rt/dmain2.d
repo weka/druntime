@@ -50,6 +50,7 @@ extern (C) void rt_moduleDtor();
 extern (C) void rt_moduleTlsDtor();
 extern (C) void thread_joinAll();
 extern (C) bool runModuleUnitTests();
+extern (C) size_t _d_eh_exception_structs_in_flight_count();
 
 version (OSX)
 {
@@ -197,6 +198,12 @@ extern (C) int rt_term()
 
     try
     {
+        static exceptionError = new Error(
+            "More than zero exception structs in flight!");
+
+        if (_d_eh_exception_structs_in_flight_count() != 0)
+            throw exceptionError;
+
         rt_moduleTlsDtor();
         thread_joinAll();
         rt_moduleDtor();

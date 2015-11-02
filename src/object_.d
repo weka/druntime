@@ -326,7 +326,7 @@ class TypeInfo
     /** Return internal info on arguments fitting into 8byte.
      * See X86-64 ABI 3.2.3
      */
-    version (X86_64) int argTypes(out TypeInfo arg1, out TypeInfo arg2) @safe nothrow
+    version (X86_64) int argTypes(out TypeInfo arg1, out TypeInfo arg2) @safe nothrow @nogc
     {
         arg1 = this;
         return 0;
@@ -362,7 +362,7 @@ class TypeInfo_Typedef : TypeInfo
 
     override @property size_t talign() nothrow pure const { return base.talign; }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         return base.argTypes(arg1, arg2);
     }
@@ -507,7 +507,7 @@ class TypeInfo_Array : TypeInfo
         return (void[]).alignof;
     }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         arg1 = typeid(size_t);
         arg2 = typeid(void*);
@@ -623,7 +623,7 @@ class TypeInfo_StaticArray : TypeInfo
         return value.talign;
     }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         arg1 = typeid(void*);
         return 0;
@@ -674,7 +674,7 @@ class TypeInfo_AssociativeArray : TypeInfo
         return (char[int]).alignof;
     }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         arg1 = typeid(void*);
         return 0;
@@ -705,7 +705,7 @@ class TypeInfo_Vector : TypeInfo
 
     override @property size_t talign() nothrow pure const { return 16; }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         return base.argTypes(arg1, arg2);
     }
@@ -773,7 +773,7 @@ class TypeInfo_Delegate : TypeInfo
         return dg.alignof;
     }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         arg1 = typeid(void*);
         arg2 = typeid(void*);
@@ -1092,7 +1092,7 @@ class TypeInfo_Struct : TypeInfo
 
     version (X86_64)
     {
-        override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+        override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
         {
             arg1 = m_arg1;
             arg2 = m_arg2;
@@ -1192,7 +1192,7 @@ class TypeInfo_Tuple : TypeInfo
         assert(0);
     }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         assert(0);
     }
@@ -1230,7 +1230,7 @@ class TypeInfo_Const : TypeInfo
 
     override @property size_t talign() nothrow pure const { return base.talign; }
 
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc
     {
         return base.argTypes(arg1, arg2);
     }

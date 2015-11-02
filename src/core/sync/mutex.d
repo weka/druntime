@@ -128,13 +128,13 @@ class Mutex :
      * Throws:
      *  SyncError on error.
      */
-    @trusted void lock()
+    @trusted void lock() @nogc
     {
         lock_nothrow();
     }
 
     // undocumented function for internal use
-    final void lock_nothrow() nothrow @trusted
+    final void lock_nothrow() nothrow @trusted @nogc
     {
         version( Windows )
         {
@@ -142,9 +142,10 @@ class Mutex :
         }
         else version( Posix )
         {
+            static exception = new SyncError( "Unable to lock mutex" );
             int rc = pthread_mutex_lock( &m_hndl );
             if( rc )
-                throw new SyncError( "Unable to lock mutex" );
+                throw exception;
         }
     }
 
@@ -155,13 +156,13 @@ class Mutex :
      * Throws:
      *  SyncError on error.
      */
-    @trusted void unlock()
+    @trusted void unlock() @nogc
     {
         unlock_nothrow();
     }
 
     // undocumented function for internal use
-    final void unlock_nothrow() nothrow @trusted
+    final void unlock_nothrow() nothrow @trusted @nogc
     {
         version( Windows )
         {
@@ -169,9 +170,10 @@ class Mutex :
         }
         else version( Posix )
         {
+            static exception = new SyncError( "Unable to unlock mutex" );
             int rc = pthread_mutex_unlock( &m_hndl );
             if( rc )
-                throw new SyncError( "Unable to unlock mutex" );
+                throw exception;
         }
     }
 
