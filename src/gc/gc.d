@@ -244,12 +244,12 @@ const uint GCVERSION = 1;       // increment every time we change interface
 // This just makes Mutex final to de-virtualize member function calls.
 final class GCMutex : Mutex
 {
-    final override void lock() nothrow @trusted
+    final override void lock() nothrow @trusted @nogc
     {
         super.lock_nothrow();
     }
 
-    final override void unlock() nothrow @trusted
+    final override void unlock() nothrow @trusted @nogc
     {
         super.unlock_nothrow();
     }
@@ -1079,7 +1079,7 @@ struct GC
     /**
      * add p to list of roots
      */
-    void addRoot(void *p) nothrow
+    void addRoot(void *p) nothrow @nogc
     {
         if (!p)
         {
@@ -1095,7 +1095,7 @@ struct GC
     /**
      * remove p from list of roots
      */
-    void removeRoot(void *p) nothrow
+    void removeRoot(void *p) nothrow @nogc
     {
         if (!p)
         {
@@ -1477,7 +1477,7 @@ struct Gcx
     /**
      *
      */
-    void addRoot(void *p) nothrow
+    void addRoot(void *p) nothrow @nogc
     {
         roots.insert(Root(p));
     }
@@ -1486,7 +1486,7 @@ struct Gcx
     /**
      *
      */
-    void removeRoot(void *p) nothrow
+    void removeRoot(void *p) nothrow @nogc
     {
         roots.remove(Root(p));
     }

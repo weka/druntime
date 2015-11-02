@@ -13,7 +13,7 @@
 module core.stdc.stdarg;
 
 @system:
-//@nogc:    // Not yet, need to make TypeInfo's member functions @nogc first
+@nogc:
 
 version ( PPC ) version = AnyPPC;
 version ( PPC64 ) version = AnyPPC;

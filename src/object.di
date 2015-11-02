@@ -126,7 +126,7 @@ class TypeInfo
     void destroy(void* p) const;
     void postblit(void* p) const;
     @property size_t talign() nothrow pure const @safe @nogc;
-    version (X86_64) int argTypes(out TypeInfo arg1, out TypeInfo arg2) @safe nothrow;
+    version (X86_64) int argTypes(out TypeInfo arg1, out TypeInfo arg2) @safe nothrow @nogc;
     @property immutable(void)* rtInfo() nothrow pure const @safe @nogc;
 }
 
@@ -159,7 +159,7 @@ class TypeInfo_Array : TypeInfo
     override @property inout(TypeInfo) next() nothrow pure inout;
     override @property uint flags() nothrow pure const;
     override @property size_t talign() nothrow pure const;
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2);
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2) @nogc;
 
     TypeInfo value;
 }

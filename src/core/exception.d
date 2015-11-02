@@ -673,4 +673,73 @@ else
         onHiddenFuncError(o);
     }
 }
+
+    version (unittest)
+    {
+        struct MemoryBlock
+        {
+        @nogc:
+            import core.stdc.stdlib : malloc, free;
+            void* p;
+            this(uint size) { p = malloc(size); }
+            ~this() { free(p); }
+        }
+
+        // weka-io: test throwing of static exceptions
+        unittest
+        {
+            void throwStaticException() @nogc
+            {
+                static exception = new UnicodeException("Testing 123", 0);
+                throw exception;
+            }
+
+            try
+            {
+                try
+                {
+                    auto block = MemoryBlock(64);
+                    throwStaticException();
+                }
+                catch (Exception e)
+                {
+                    assert(e.msg == "Testing 123");
+                    e.msg ~= '4';
+                    throw e;
+                }
+            }
+            catch (Exception e)
+            {
+                assert(e.msg == "Testing 1234");
+            }
+        }
+
+        // weka-io: test throwing of non-static exceptions
+        unittest
+        {
+            void throwNewException()
+            {
+                throw new UnicodeException("Testing 123", 0);
+            }
+
+            try
+            {
+                try
+                {
+                    auto block = MemoryBlock(64);
+                    throwNewException();
+                }
+                catch (Exception e)
+                {
+                    assert(e.msg == "Testing 123");
+                    e.msg ~= '4';
+                    throw e;
+                }
+            }
+            catch (Exception e)
+            {
+                assert(e.msg == "Testing 1234");
+            }
+        }
+    }
 }

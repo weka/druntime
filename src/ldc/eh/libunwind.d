@@ -4,6 +4,9 @@
  */
 module ldc.eh.libunwind;
 
+import core.stdc.stdio;
+import core.stdc.stdlib : malloc, free;
+
 version (Win64) {} else
 {
 
@@ -15,6 +18,7 @@ import ldc.eh.common;
 private:
 
 // C headers
+@nogc {
 extern(C)
 {
     // FIXME: Some of these do not actually exist on ARM.
@@ -87,7 +91,7 @@ extern(C)
     ptrdiff_t _Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 }
-
+}
 
 // Exception struct used by the runtime.
 // _d_throw allocates a new instance and passes the address of its
@@ -108,6 +112,9 @@ struct _d_exception
     {
         _Unwind_Exception unwind_info;
     }
+    debug (EH_personality)
+        size_t exception_index = 0;
+    size_t ref_count = 1;
 }
 
 // the 8-byte string identifying the type of exception
@@ -395,13 +402,15 @@ else // !ARM
 }
 
 extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
-
+alias NoGCTraceContext = extern (C) Throwable.TraceInfo function(void* ptr = null) @nogc;
 
 
 public extern(C):
 
+private __gshared uint exceptionStructsInFlight;
+
 /// Called by our compiler-generated code to throw an exception.
-void _d_throw_exception(Object e)
+void _d_throw_exception(Object e) @nogc
 {
     if (e is null)
         fatalerror("Cannot throw null exception");
@@ -412,9 +421,14 @@ void _d_throw_exception(Object e)
     auto throwable = cast(Throwable) e;
 
     if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
-        throwable.info = _d_traceContext();
+    {
+        // _d_traceContext may allocate, but we don't mind
+        throwable.info = (cast(NoGCTraceContext)&_d_traceContext)();
+    }
 
-    auto exc_struct = new _d_exception;
+    // weka-io TODO: Use pre-reserved memory for OOM exceptions
+    auto exc_struct = cast(_d_exception*)malloc(_d_exception.sizeof);
+    *exc_struct = _d_exception.init;
     version (ARM)
     {
         exc_struct.unwind_info.exception_class = _d_exception_class;
@@ -423,12 +437,14 @@ void _d_throw_exception(Object e)
     {
         exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
     }
+
     exc_struct.exception_object = e;
 
     debug(EH_personality)
     {
-        printf("= Throwing new exception of type %s: %p (struct at %p, classinfo at %p)\n",
-            e.classinfo.name.ptr, e, exc_struct, e.classinfo);
+        exc_struct.exception_index = ++exceptionStructsInFlight;
+        printf("= Throwing new exception of type %s: %p (struct #%i at %p, classinfo at %p)\n",
+            e.classinfo.name.ptr, e, exc_struct.exception_index, exc_struct, e.classinfo);
     }
 
     searchPhaseClassInfo = e.classinfo;
@@ -442,8 +458,10 @@ void _d_throw_exception(Object e)
 
 /// Called by our compiler-generate code to resume unwinding after a finally
 /// block (or dtor destruction block) has been run.
-void _d_eh_resume_unwind(_d_exception* exception_struct)
+void _d_eh_resume_unwind(void* p) @nogc
 {
+    auto exception_struct = cast(_d_exception*)p;
+
     debug(EH_personality)
     {
         printf("= Returning from cleanup block for %p (struct at %p)\n",
@@ -454,7 +472,61 @@ void _d_eh_resume_unwind(_d_exception* exception_struct)
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-void _d_eh_enter_catch()
+/// Called by our compiler-generated code to increase the ref on a _d_exception
+void _d_eh_exception_incref(void** p) @nogc nothrow
+{
+    auto exception_struct_ptr = cast(_d_exception**)p;
+    auto exception_struct = *exception_struct_ptr;
+
+    if (!exception_struct)
+        return;
+
+    exception_struct.ref_count++;
+
+    debug(EH_personality)
+    {
+        printf("  - Increasing refcount of exception struct %i at %p: %i\n",
+            exception_struct.exception_index, exception_struct, exception_struct.ref_count);
+    }
+}
+
+/// Called by our compiler-generated code to decrease the ref on a _d_exception
+void _d_eh_exception_decref(void** p) @nogc nothrow
+{
+    auto exception_struct_ptr = cast(_d_exception**)p;
+    auto exception_struct = *exception_struct_ptr;
+
+    if (!exception_struct)
+        return;
+
+    exception_struct.ref_count--;
+
+    debug(EH_personality)
+    {
+        printf("  - Decreasing refcount of exception struct %i at %p: %i\n",
+            exception_struct.exception_index, exception_struct, exception_struct.ref_count);
+    }
+
+    if (exception_struct.ref_count == 0)
+    {
+        debug(EH_personality)
+        {
+            exceptionStructsInFlight--;
+            printf("= Destroying exception struct %i at %p, %i in flight\n",
+                exception_struct.exception_index, exception_struct, exceptionStructsInFlight);
+        }
+        free(exception_struct);
+
+        *exception_struct_ptr = null;
+    }
+}
+
+size_t _d_eh_exception_structs_in_flight_count() @nogc
+{
+    return exceptionStructsInFlight;
+}
+
+void _d_eh_enter_catch() @nogc
 {
     popCleanupBlockRecord();
 }
