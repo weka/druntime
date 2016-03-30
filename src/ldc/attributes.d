@@ -77,5 +77,4 @@ struct target {
  + ---
  +/
 immutable weak = _weak();
-struct _weak {
-}
+private struct _weak {}
