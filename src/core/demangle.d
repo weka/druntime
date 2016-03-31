@@ -16,6 +16,24 @@ module core.demangle;
 debug(trace) import core.stdc.stdio : printf;
 debug(info) import core.stdc.stdio : printf;
 
+debug(trace) {
+    void tracef(T...)(bool entry, T args)
+    {
+        static int indent;
+
+        if (!entry) indent--;
+
+        for (int i = 0; i < indent; ++i) {
+            printf("  ");
+        }
+        printf(args);
+
+        if (entry) indent++;
+    }
+    void trace_entry(const char* args) { tracef(true, args); }
+    void trace_exit(const char* args)  { tracef(false, args); }
+}
+
 private struct Demangle
 {
     // NOTE: This implementation currently only works with mangled function
@@ -58,9 +76,18 @@ private struct Demangle
 
     const(char)[]   buf     = null;
     char[]          dst     = null;
-    size_t          pos     = 0;
+    size_t          pos     = 0; // Position in the input buffer, advances during parsing
     size_t          len     = 0;
     AddType         addType = AddType.yes;
+
+    // Storage for saved typenames, that can be recalled using 'Q'
+    // Saved types are:
+    //    case 'I': // TypeIdent (I LName)
+    //    case 'C': // TypeClass (C LName)
+    //    case 'S': // TypeStruct (S LName)
+    //    case 'E': // TypeEnum (E LName)
+    //    case 'T': // TypeTypedef (T LName)
+    string[] saved_types = new string[0];
 
 
     static class ParseException : Exception
@@ -266,8 +293,8 @@ private struct Demangle
 
     void silent( lazy void dg )
     {
-        debug(trace) printf( "silent+\n" );
-        debug(trace) scope(success) printf( "silent-\n" );
+        debug(trace) trace_entry( "silent+\n" );
+        debug(trace) scope(success) trace_exit( "silent-\n" );
         auto n = len; dg(); len = n;
     }
 
@@ -339,8 +366,8 @@ private struct Demangle
     */
     const(char)[] sliceNumber()
     {
-        debug(trace) printf( "sliceNumber+\n" );
-        debug(trace) scope(success) printf( "sliceNumber-\n" );
+        debug(trace) trace_entry( "sliceNumber+\n" );
+        debug(trace) scope(success) trace_exit( "sliceNumber-\n" );
 
         auto beg = pos;
 
@@ -357,8 +384,8 @@ private struct Demangle
 
     size_t decodeNumber()
     {
-        debug(trace) printf( "decodeNumber+\n" );
-        debug(trace) scope(success) printf( "decodeNumber-\n" );
+        debug(trace) trace_entry( "decodeNumber+\n" );
+        debug(trace) scope(success) trace_exit( "decodeNumber-\n" );
 
         return decodeNumber( sliceNumber() );
     }
@@ -366,8 +393,8 @@ private struct Demangle
 
     size_t decodeNumber( const(char)[] num )
     {
-        debug(trace) printf( "decodeNumber+\n" );
-        debug(trace) scope(success) printf( "decodeNumber-\n" );
+        debug(trace) trace_entry( "decodeNumber+\n" );
+        debug(trace) scope(success) trace_exit( "decodeNumber-\n" );
 
         size_t val = 0;
 
@@ -387,8 +414,8 @@ private struct Demangle
 
     void parseReal()
     {
-        debug(trace) printf( "parseReal+\n" );
-        debug(trace) scope(success) printf( "parseReal-\n" );
+        debug(trace) trace_entry( "parseReal+\n" );
+        debug(trace) scope(success) trace_exit( "parseReal-\n" );
 
         char[64] tbuf = void;
         size_t   tlen = 0;
@@ -481,8 +508,8 @@ private struct Demangle
     */
     void parseLName()
     {
-        debug(trace) printf( "parseLName+\n" );
-        debug(trace) scope(success) printf( "parseLName-\n" );
+        debug(trace) trace_entry( "parseLName+\n" );
+        debug(trace) scope(success) trace_exit( "parseLName-\n" );
 
         auto n = decodeNumber();
 
@@ -700,8 +727,8 @@ private struct Demangle
             "dchar", // w
         ];
 
-        debug(trace) printf( "parseType+\n" );
-        debug(trace) scope(success) printf( "parseType-\n" );
+        debug(trace) trace_entry( "parseType+\n" );
+        debug(trace) scope(success) trace_exit( "parseType-\n" );
         auto beg = len;
         auto t = front;
 
@@ -783,12 +810,30 @@ private struct Demangle
         case 'F': case 'U': case 'W': case 'V': case 'R': // TypeFunction
             return parseTypeFunction( name );
         case 'I': // TypeIdent (I LName)
+            popFront();
+            pad( name );
+            return dst[beg .. len];
         case 'C': // TypeClass (C LName)
         case 'S': // TypeStruct (S LName)
         case 'E': // TypeEnum (E LName)
         case 'T': // TypeTypedef (T LName)
             popFront();
             parseQualifiedName();
+            {
+                // Save LName for possible later use (TypeRepeat)
+                auto lname = dst[beg .. len];
+                saved_types ~= lname.idup;
+                debug(info) printf( "save (%u = %.*s)\n", cast(uint) (saved_types.length-1), cast(int) saved_types[$-1].length, saved_types[$-1].ptr);
+            }
+            pad( name );
+            return dst[beg .. len];
+        case 'Q': // TypeRepeat (Q Number)
+            popFront();
+            size_t idx = decodeNumber();
+            if (idx >= saved_types.length)
+                error( "Repeat type number out of range");
+            debug(info) printf( "recall (%u = %.*s)\n", cast(uint) idx, cast(int) saved_types[$-1].length, saved_types[$-1].ptr);
+            put(saved_types[idx]);
             pad( name );
             return dst[beg .. len];
         case 'D': // TypeDelegate (D TypeFunction)
@@ -1067,8 +1112,8 @@ private struct Demangle
     // returns the argument list with the left parenthesis, but not the right
     char[] parseTypeFunction( char[] name = null, IsDelegate isdg = IsDelegate.no )
     {
-        debug(trace) printf( "parseTypeFunction+\n" );
-        debug(trace) scope(success) printf( "parseTypeFunction-\n" );
+        debug(trace) trace_entry( "parseTypeFunction+\n" );
+        debug(trace) scope(success) trace_exit( "parseTypeFunction-\n" );
         auto beg = len;
 
         parseCallConvention();
@@ -1149,8 +1194,8 @@ private struct Demangle
     */
     void parseValue( char[] name = null, char type = '\0' )
     {
-        debug(trace) printf( "parseValue+\n" );
-        debug(trace) scope(success) printf( "parseValue-\n" );
+        debug(trace) trace_entry( "parseValue+\n" );
+        debug(trace) scope(success) trace_exit( "parseValue-\n" );
 
 //        printf( "*** %c\n", front );
         switch( front )
@@ -1270,8 +1315,8 @@ private struct Demangle
 
     void parseIntegerValue( char[] name = null, char type = '\0' )
     {
-        debug(trace) printf( "parseIntegerValue+\n" );
-        debug(trace) scope(success) printf( "parseIntegerValue-\n" );
+        debug(trace) trace_entry( "parseIntegerValue+\n" );
+        debug(trace) scope(success) trace_exit( "parseIntegerValue-\n" );
 
         switch( type )
         {
@@ -1379,8 +1424,8 @@ private struct Demangle
     */
     void parseTemplateArgs()
     {
-        debug(trace) printf( "parseTemplateArgs+\n" );
-        debug(trace) scope(success) printf( "parseTemplateArgs-\n" );
+        debug(trace) trace_entry( "parseTemplateArgs+\n" );
+        debug(trace) scope(success) trace_exit( "parseTemplateArgs-\n" );
 
         for( size_t n = 0; true; n++ )
         {
@@ -1439,8 +1484,8 @@ private struct Demangle
 
     bool mayBeMangledNameArg()
     {
-        debug(trace) printf( "mayBeMangledNameArg+\n" );
-        debug(trace) scope(success) printf( "mayBeMangledNameArg-\n" );
+        debug(trace) trace_entry( "mayBeMangledNameArg+\n" );
+        debug(trace) scope(success) trace_exit( "mayBeMangledNameArg-\n" );
 
         auto p = pos;
         scope(exit) pos = p;
@@ -1454,8 +1499,8 @@ private struct Demangle
 
     void parseMangledNameArg()
     {
-        debug(trace) printf( "parseMangledNameArg+\n" );
-        debug(trace) scope(success) printf( "parseMangledNameArg-\n" );
+        debug(trace) trace_entry( "parseMangledNameArg+\n" );
+        debug(trace) scope(success) trace_exit( "parseMangledNameArg-\n" );
 
         auto n = decodeNumber();
         parseMangledName( n );
@@ -1468,8 +1513,8 @@ private struct Demangle
     */
     void parseTemplateInstanceName()
     {
-        debug(trace) printf( "parseTemplateInstanceName+\n" );
-        debug(trace) scope(success) printf( "parseTemplateInstanceName-\n" );
+        debug(trace) trace_entry( "parseTemplateInstanceName+\n" );
+        debug(trace) scope(success) trace_exit( "parseTemplateInstanceName-\n" );
 
         auto sav = pos;
         scope(failure) pos = sav;
@@ -1488,8 +1533,8 @@ private struct Demangle
 
     bool mayBeTemplateInstanceName()
     {
-        debug(trace) printf( "mayBeTemplateInstanceName+\n" );
-        debug(trace) scope(success) printf( "mayBeTemplateInstanceName-\n" );
+        debug(trace) trace_entry( "mayBeTemplateInstanceName+\n" );
+        debug(trace) scope(success) trace_exit( "mayBeTemplateInstanceName-\n" );
 
         auto p = pos;
         scope(exit) pos = p;
@@ -1508,8 +1553,8 @@ private struct Demangle
     */
     void parseSymbolName()
     {
-        debug(trace) printf( "parseSymbolName+\n" );
-        debug(trace) scope(success) printf( "parseSymbolName-\n" );
+        debug(trace) trace_entry( "parseSymbolName+\n" );
+        debug(trace) scope(success) trace_exit( "parseSymbolName-\n" );
 
         // LName -> Number
         // TemplateInstanceName -> Number "__T"
@@ -1547,8 +1592,8 @@ private struct Demangle
     */
     char[] parseQualifiedName()
     {
-        debug(trace) printf( "parseQualifiedName+\n" );
-        debug(trace) scope(success) printf( "parseQualifiedName-\n" );
+        debug(trace) trace_entry( "parseQualifiedName+\n" );
+        debug(trace) scope(success) trace_exit( "parseQualifiedName-\n" );
         size_t  beg = len;
         size_t  n   = 0;
 
@@ -1599,8 +1644,8 @@ private struct Demangle
     */
     void parseMangledName(size_t n = 0)
     {
-        debug(trace) printf( "parseMangledName+\n" );
-        debug(trace) scope(success) printf( "parseMangledName-\n" );
+        debug(trace) trace_entry( "parseMangledName+\n" );
+        debug(trace) scope(success) trace_exit( "parseMangledName-\n" );
         char[] name = null;
 
         auto end = pos + n;
@@ -1610,6 +1655,8 @@ private struct Demangle
         do
         {
             name = parseQualifiedName();
+            // Reset saved_types
+            saved_types = new string[0];
             debug(info) printf( "name (%.*s)\n", cast(int) name.length, name.ptr );
             if( 'M' == front )
                 popFront(); // has 'this' pointer
@@ -1624,6 +1671,7 @@ private struct Demangle
 
     char[] doDemangle(alias FUNC)()
     {
+        saved_types = new string[0];
         while( true )
         {
             try
