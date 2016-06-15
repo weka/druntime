@@ -525,6 +525,8 @@ void _d_throw_exception(Object e)
     searchPhaseClassInfo = e.classinfo;
     searchPhaseCurrentCleanupBlock = innermostCleanupBlock;
 
+    pushCurrentException(throwable);
+
     // _Unwind_RaiseException should never return unless something went really
     // wrong with unwinding.
     immutable ret = _Unwind_RaiseException(&exc_struct.unwind_info);
@@ -618,7 +620,13 @@ Object _d_eh_enter_catch(void* ptr)
     }
     auto obj = _d_eh_destroy_exception_struct(exception_struct);
     popCleanupBlockRecord();
+    pushCaughtException(cast(Throwable)obj);
     return obj;
+}
+
+void _d_eh_exit_catch() nothrow @nogc
+{
+    popCaughtAndCurrentException();
 }
 
 } // !CRuntime_Microsoft

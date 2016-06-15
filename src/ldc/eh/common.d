@@ -731,3 +731,39 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
         action_walker += next_action_offset;
     }
 }
+
+//////////////////////////////////////
+// getCurrentException functionality
+
+import rt.util.container.array;
+static Array!(Throwable) currentExceptionStack;
+static Array!(Throwable) caughtExceptionStack;
+
+void pushCurrentException(Throwable ptr) nothrow @nogc
+{
+    currentExceptionStack.insertBack(ptr);
+}
+void pushCaughtException(Throwable ptr) nothrow @nogc
+{
+    caughtExceptionStack.insertBack(ptr);
+}
+void popCaughtAndCurrentException() nothrow @nogc
+{
+    auto thisCatch = caughtExceptionStack[$-1];
+    caughtExceptionStack.popBack();
+
+    // If there was a throw inside this catch block, fixup the currentExceptionStack
+    bool throwInsideCatch = (currentExceptionStack[$-1] !is thisCatch);
+    if (throwInsideCatch)
+    {
+        currentExceptionStack[$-2] = currentExceptionStack[$-1];
+    }
+    currentExceptionStack.popBack();
+}
+
+extern(C)
+Throwable getCurrentException() nothrow @nogc
+{
+    auto len = currentExceptionStack.length();
+    return len ? currentExceptionStack[len-1] : null;
+}
