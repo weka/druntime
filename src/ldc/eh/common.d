@@ -746,6 +746,14 @@ void pushCurrentException(Throwable ptr) nothrow @nogc
 void pushCaughtException(Throwable ptr) nothrow @nogc
 {
     caughtExceptionStack.insertBack(ptr);
+
+    // Remove the exceptions chained to `ptr` from `currentExceptionStack`.
+    size_t index = currentExceptionStack.length;
+    while (currentExceptionStack[index-1] !is ptr) {
+        if (--index == 0)
+            break;
+    }
+    currentExceptionStack.length = index;
 }
 void popCaughtAndCurrentException() nothrow @nogc
 {
