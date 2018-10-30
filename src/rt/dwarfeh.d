@@ -228,6 +228,18 @@ struct ExceptionHeader
     }
 }
 
+/****************************************
+ * Returns true when an exception is "in flight", where "in flight"
+ * means that an exception has been thrown but has not been caught yet.
+ *
+ * Returns:
+ *      true when an exception is "in flight" or not.
+ */
+extern(C) bool _d_eh_isExceptionInFlight()
+{
+    return ExceptionHeader.stack !is null;
+}
+
 /*******************************************
  * The first thing a catch handler does is call this.
  * Params:
