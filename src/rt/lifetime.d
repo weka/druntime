@@ -1440,6 +1440,9 @@ extern (C) void rt_finalize2(void* p, bool det = true, bool resetMemory = true) 
         return;
 
     auto pc = cast(ClassInfo*) *ppv;
+auto str = (*pc).toString();
+import core.stdc.stdio;
+printf("rt_finalize2: %.*s, ", str.length, str.ptr);
     try
     {
         if (det || collectHandler is null || collectHandler(cast(Object) p))
@@ -1447,30 +1450,39 @@ extern (C) void rt_finalize2(void* p, bool det = true, bool resetMemory = true) 
             auto c = *pc;
             do
             {
-                if (c.destructor)
+                printf("inheritance loop, ");
+                if (c.destructor) {
+                    printf("call dtor, ");
                     (cast(fp_t) c.destructor)(cast(Object) p); // call destructor
+                }
             }
             while ((c = c.base) !is null);
         }
 
-        if (ppv[1]) // if monitor is not null
+        if (ppv[1]) {// if monitor is not null
+            printf("monitor delete, ");
             _d_monitordelete(cast(Object) p, det);
+        }
 
         if (resetMemory)
         {
+            printf("reset mem, ");
             auto w = (*pc).initializer;
             p[0 .. w.length] = w[];
         }
     }
     catch (Exception e)
     {
+        printf("ouch\n");
         import core.exception : onFinalizeError;
         onFinalizeError(*pc, e);
     }
     finally
     {
+        printf("zero vptr, ");
         *ppv = null; // zero vptr even if `resetMemory` is false
     }
+    printf("succes\n");
 }
 
 extern (C) void rt_finalize(void* p, bool det = true)
