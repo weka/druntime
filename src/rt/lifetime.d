@@ -1428,6 +1428,17 @@ void finalize_struct(void* p, size_t size) nothrow
     }
 }
 
+public extern(C) __gshared bool johanDebug;
+extern(C) void setJohanDebug(bool f = true) { johanDebug = f; }
+import core.stdc.stdarg;
+import core.stdc.stdio;
+private void printf_johanDebug(Args...)(scope const char* str, Args args) nothrow @system
+{
+    if (johanDebug) {
+        printf(str, args);
+    }
+}
+
 /**
  *
  */
@@ -1442,7 +1453,7 @@ extern (C) void rt_finalize2(void* p, bool det = true, bool resetMemory = true) 
     auto pc = cast(ClassInfo*) *ppv;
 auto str = (*pc).toString();
 import core.stdc.stdio;
-printf("rt_finalize2: %.*s, ", str.length, str.ptr);
+printf_johanDebug("rt_finalize2: %.*s, ", str.length, str.ptr);
     try
     {
         if (det || collectHandler is null || collectHandler(cast(Object) p))
@@ -1450,9 +1461,9 @@ printf("rt_finalize2: %.*s, ", str.length, str.ptr);
             auto c = *pc;
             do
             {
-                printf("inheritance loop, ");
+                printf_johanDebug("inheritance loop, ");
                 if (c.destructor) {
-                    printf("call dtor, ");
+                    printf_johanDebug("call dtor, ");
                     (cast(fp_t) c.destructor)(cast(Object) p); // call destructor
                 }
             }
@@ -1460,29 +1471,29 @@ printf("rt_finalize2: %.*s, ", str.length, str.ptr);
         }
 
         if (ppv[1]) {// if monitor is not null
-            printf("monitor delete, ");
+            printf_johanDebug("monitor delete, ");
             _d_monitordelete(cast(Object) p, det);
         }
 
         if (resetMemory)
         {
-            printf("reset mem, ");
+            printf_johanDebug("reset mem, ");
             auto w = (*pc).initializer;
             p[0 .. w.length] = w[];
         }
     }
     catch (Exception e)
     {
-        printf("ouch\n");
+        printf_johanDebug("ouch\n");
         import core.exception : onFinalizeError;
         onFinalizeError(*pc, e);
     }
     finally
     {
-        printf("zero vptr, ");
+        printf_johanDebug("zero vptr, ");
         *ppv = null; // zero vptr even if `resetMemory` is false
     }
-    printf("succes\n");
+    printf_johanDebug("succes\n");
 }
 
 extern (C) void rt_finalize(void* p, bool det = true)
