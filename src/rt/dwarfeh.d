@@ -190,7 +190,7 @@ struct ExceptionHeader
         /* Smite contents even if subsequently free'd,
          * to ward off dangling pointer bugs.
          */
-        *eh = ExceptionHeader.init;
+        (cast(ubyte*)eh)[0 .. eh.sizeof] = ubyte(0);
         if (eh != &ehstorage)
             core.stdc.stdlib.free(eh);
     }
