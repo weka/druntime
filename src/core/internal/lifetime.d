@@ -92,71 +92,50 @@ constructors etc.
 void emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted
     if (!is(T == const) && !is(T == immutable) && !is(T == inout))
 {
+    static if (is(T U == shared U))
+        alias Unshared = U;
+    else
+        alias Unshared = T;
+
+    __emplaceInitializer!Unshared(chunk);
+}
+
+template __emplaceInitializer(T) {
     import core.internal.traits : hasElaborateAssign;
-
-    static if (!hasElaborateAssign!T && __traits(compiles, chunk = T.init))
+    static if (__traits(isZeroInit, T))
     {
-        chunk = T.init;
+        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc {
+            import core.stdc.string : memset;
+            memset(cast(void*) &chunk, 0, T.sizeof);
+        }
     }
-    else static if (__traits(isZeroInit, T))
+    else static if (T.sizeof <= 16 && !hasElaborateAssign!T && __traits(compiles, (){ T chunk; chunk = T.init; }))
     {
-        static if (is(T U == shared U))
-            alias Unshared = U;
-        else
-            alias Unshared = T;
-
-        import core.stdc.string : memset;
-        memset(cast(Unshared*) &chunk, 0, T.sizeof);
+        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc {
+            chunk = T.init;
+        }
+    }
+    else static if (is(T U : U[N], size_t N)) // if isStaticArray
+    {
+        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc
+        {
+            foreach (i; 0..N)
+            {
+                emplaceInitializer(chunk[i]);
+            }
+        }
     }
     else
     {
-version(WEKA)
-{
-        version(all)
-        {
-            // Avoid stack allocation, at the cost of virtual call to get the init symbol.
-            auto init = cast(ubyte[])typeid(T).initializer();
-            // arr.ptr is only null in the case of zero initializer, which is handled above.
+        // Avoid stack allocation by hacking to get to the init symbol.
+         pragma(mangle, "_D" ~ T.mangleof[1..$] ~ "6__initZ")
+        __gshared extern immutable typeof(T.init) initializer;
 
+        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc
+        {
             import core.stdc.string : memcpy;
-            static if (__traits(isStaticArray, T))
-            {
-                // Static array initializer only contains initialization
-                // for one element of the static array.
-                auto elemp = cast(void *) &chunk;
-                auto endp = elemp + T.sizeof;
-                while (elemp < endp)
-                {
-                    memcpy(elemp, init.ptr, init.length);
-                    elemp += init.length;
-                }
-            }
-            else
-            {
-                memcpy(&chunk, init.ptr, T.sizeof);
-            }
+            memcpy(cast(void*)&chunk, &initializer, T.sizeof);
         }
-        else
-        {
-            // Avoid stack allocation, at the cost of duplicating the init symbol (binary size increase)
-            import core.stdc.string : memcpy;
-            shared static immutable T init = T.init;
-            memcpy(&chunk, &init, T.sizeof);
-        }
-}
-else
-{
-        // emplace T.init (an rvalue) without extra variable (and according destruction)
-        alias RawBytes = void[T.sizeof];
-
-        static union U
-        {
-            T dummy = T.init; // U.init corresponds to T.init
-            RawBytes data;
-        }
-
-        *cast(RawBytes*) &chunk = U.init.data;
-}
     }
 }
 
@@ -168,14 +147,20 @@ else
         {
             T dst = void;
             emplaceInitializer(dst);
-            assert(dst is T.init);
+            // Poor man's comparison solution here. Cannot do "==" or "is" because that is not generic enough.
+            T init;
+            import core.stdc.string;
+            () @trusted { memcmp(&dst, &init, T.sizeof); }();
         }
 
         // shared T
         {
             shared T dst = void;
             emplaceInitializer(dst);
-            assert(dst is shared(T).init);
+            // Poor man's comparison solution here. Cannot do "==" or "is" because that is not generic enough.
+            T init;
+            import core.stdc.string;
+            () @trusted { memcmp(cast(void*)&dst, &init, T.sizeof); }();
         }
 
         // const T
@@ -199,6 +184,47 @@ else
 
     testInitializer!int();
     testInitializer!double();
+    testInitializer!(double[4])();
+    testInitializer!(char[4])();
     testInitializer!ElaborateAndZero();
     testInitializer!ElaborateAndNonZero();
+}
+
+@safe unittest
+{
+    enum LARGE_ARRAY_SIZE = 10_000_000;
+    // Test emplaceInitializer for very large data objects for which stack allocation cannot be used.
+    {
+        auto largeCharArray = new char[LARGE_ARRAY_SIZE];
+        enum i = 10; // arbitrary index
+        largeCharArray[i] = 55;
+        emplaceInitializer!(char[LARGE_ARRAY_SIZE])(largeCharArray[0..LARGE_ARRAY_SIZE]);
+        assert(largeCharArray[i] == 0xFF);
+    }
+
+    {
+        static struct LargeNonElaborate
+        {
+            char[LARGE_ARRAY_SIZE] a;
+        }
+        auto p = new LargeNonElaborate();
+        enum i = 11; // arbitrary index
+        p.a[i] = 55;
+        emplaceInitializer(*p);
+        assert(p.a[i] == 0xFF);
+    }
+
+    {
+        static struct LargeNonElaborateInitSymbol
+        {
+            char[LARGE_ARRAY_SIZE/2] a;
+            int i;
+            char[LARGE_ARRAY_SIZE/2] a;
+        }
+        auto p = new LargeNonElaborateInitSymbol();
+        enum i = 11; // arbitrary index
+        p.a[i] = 55;
+        emplaceInitializer(*p);
+        assert(p.a[i] == 0xFF);
+    }
 }
