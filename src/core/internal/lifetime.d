@@ -104,20 +104,20 @@ template __emplaceInitializer(T) {
     import core.internal.traits : hasElaborateAssign;
     static if (__traits(isZeroInit, T))
     {
-        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc {
+        void __emplaceInitializer(scope ref T chunk) nothrow pure @trusted @nogc {
             import core.stdc.string : memset;
             memset(cast(void*) &chunk, 0, T.sizeof);
         }
     }
     else static if (T.sizeof <= 16 && !hasElaborateAssign!T && __traits(compiles, (){ T chunk; chunk = T.init; }))
     {
-        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc {
+        void __emplaceInitializer(scope ref T chunk) nothrow pure @trusted @nogc {
             chunk = T.init;
         }
     }
     else static if (is(T U : U[N], size_t N)) // if isStaticArray
     {
-        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc
+        void __emplaceInitializer(scope ref T chunk) nothrow pure @trusted @nogc
         {
             foreach (i; 0..N)
             {
@@ -131,7 +131,7 @@ template __emplaceInitializer(T) {
          pragma(mangle, "_D" ~ T.mangleof[1..$] ~ "6__initZ")
         __gshared extern immutable typeof(T.init) initializer;
 
-        void __emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted @nogc
+        void __emplaceInitializer(scope ref T chunk) nothrow pure @trusted @nogc
         {
             import core.stdc.string : memcpy;
             memcpy(cast(void*)&chunk, &initializer, T.sizeof);
