@@ -202,3 +202,15 @@ else
     testInitializer!ElaborateAndZero();
     testInitializer!ElaborateAndNonZero();
 }
+
+/*
+Simple swap function.
+*/
+void swap(T)(ref T lhs, ref T rhs)
+{
+    import core.lifetime : move, moveEmplace;
+
+    T tmp = move(lhs);
+    moveEmplace(rhs, lhs);
+    moveEmplace(tmp, rhs);
+}

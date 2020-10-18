@@ -757,7 +757,10 @@ private
     {
         import core.internal.traits : hasElaborateAssign;
 
-        static assert (S.sizeof <= size_t*2 && (S.sizeof & (S.sizeof - 1)) == 0, S.stringof ~ " has invalid size for atomic operations.");
+        // `(x & (x-1)) == 0` checks that x is a power of 2.
+        static assert (S.sizeof <= size_t.sizeof * 2
+            && (S.sizeof & (S.sizeof - 1)) == 0,
+            S.stringof ~ " has invalid size for atomic operations.");
         static assert (!hasElaborateAssign!S, S.stringof ~ " may not have an elaborate assignment when used with atomic operations.");
 
         enum ValidateStruct = true;
@@ -1038,14 +1041,14 @@ version (CoreUnittest)
         assert(i == 0);
 
         shared float f = 0.1f;
-        atomicOp!"+="( f, 0.1f );
-        assert( f > 0.1999f && f < 0.2001f );
+        atomicOp!"+="(f, 0.1f);
+        assert(f > 0.1999f && f < 0.2001f);
 
-        static if ( has64BitCAS )
+        static if (has64BitCAS)
         {
             shared double d = 0.1;
-            atomicOp!"+="( d, 0.1 );
-            assert( d > 0.1999 && d < 0.2001 );
+            atomicOp!"+="(d, 0.1);
+            assert(d > 0.1999 && d < 0.2001);
         }
     }
 

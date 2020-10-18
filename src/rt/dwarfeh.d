@@ -106,7 +106,7 @@ version (LDC)
 extern (C)
 {
     int _d_isbaseof(ClassInfo b, ClassInfo c);
-    void _d_createTrace(Object o, void* context);
+    void _d_createTrace(Throwable o, void* context);
 }
 
 debug (EH_personality)
@@ -727,7 +727,6 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
  * Look at the chain of inflight exceptions and pick the class type that'll
  * be looked for in catch clauses.
  * Params:
- *      lsda = pointer to LSDA table
  *      exceptionObject = language specific exception information
  *      currentLsd = pointer to LSDA table
  * Returns:
@@ -1097,7 +1096,7 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
                         if (cleanupsOnly)
                             continue;                   // ignore catch
 
-                        auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass);
+                        auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass, lsda);
                         if (h < 0)
                         {
                             fprintf(stderr, "negative handler\n");
@@ -1141,7 +1140,6 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
 /********************************************
  * Look up classType in Action Table.
  * Params:
- *      lsda = pointer to LSDA table
  *      exceptionObject = language specific exception information
  *      actionRecordPtr = starting index in Action Table + 1
  *      pActionTable = pointer to start of Action Table
@@ -1150,9 +1148,9 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
  *      exceptionClass = which language threw the exception
  *      lsda = pointer to LSDA table
  * Returns:
- *      >=1 means the handler index of the classType
- *      0 means classType is not in the Action Table
- *      <0 means corrupt
+ *      - &gt;=1 means the handler index of the classType
+ *      - 0 means classType is not in the Action Table
+ *      - &lt;0 means corrupt
  */
 int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, const(ubyte)* pActionTable,
                       const(ubyte)* tt, ubyte TType, _Unwind_Exception_Class exceptionClass, const(ubyte)* lsda)
@@ -1391,4 +1389,3 @@ struct CppExceptionHeader
         return cast(CppExceptionHeader*)(eo + 1) - 1;
     }
 }
-
