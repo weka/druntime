@@ -7,6 +7,17 @@
  */
 module ldc.attributes;
 
+
+immutable noFlattenTemplArgs = _noFlattenTemplArgs();
+private struct _noFlattenTemplArgs
+{
+}
+immutable noFlattenVoldemort = _noFlattenVoldemort();
+private struct _noFlattenVoldemort
+{
+}
+
+
 /// Helper template
 private template AliasSeq(TList...)
 {
