@@ -894,6 +894,9 @@ void cpuidX86()
     } else {
         cf.processorName = "Unknown CPU";
     }
+
+/* The cache size information is not actually used anywhere, and crashes on modern CPUs.
+
     // Determine cache sizes
 
     // Intel docs specify that they return 0 for 0x8000_0005.
@@ -948,6 +951,7 @@ void cpuidX86()
             datacache[0].lineSize = 32;
         }
     }
+*/
     if (cf.probablyIntel && max_cpuid >= 0x0B) {
         // For Intel i7 and later, use function 0x0B to determine
         // cores and hyperthreads.
