@@ -883,10 +883,16 @@ void cpuidX86()
         }
         // Intel P4 and PM pad at front with spaces.
         // Other CPUs pad at end with nulls.
+        // However, be aware that some "prerelease" CPUs may have completely
+        // empty (spaces or nulls) values here.
         int start = 0, end = 0;
-        while (cf.processorNameBuffer[start] == ' ') { ++start; }
-        while (cf.processorNameBuffer[cf.processorNameBuffer.length-end-1] == 0) { ++end; }
-        cf.processorName = cast(string)(cf.processorNameBuffer[start..$-end]);
+        while (cf.processorNameBuffer[start] == ' ' && start < cf.processorName.length) { ++start; }
+        while (cf.processorNameBuffer[cf.processorNameBuffer.length-end-1] == 0 && end < cf.processorName.length) { ++end; }
+        if (start < end) {
+            cf.processorName = cast(string)(cf.processorNameBuffer[start..$-end]);
+        } else {
+            cf.processorName = "Unknown CPU";
+        }
     } else {
         cf.processorName = "Unknown CPU";
     }
